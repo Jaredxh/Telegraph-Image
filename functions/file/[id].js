@@ -38,7 +38,9 @@ export async function onRequest(context) {
     if (response.ok) {
         // Allow the admin page to directly view the image
         if (request.headers.get('Referer') === `${url.origin}/admin`) {
-            return response;
+            const adminResponse = new Response(response.body, response);
+            adminResponse.headers.delete('Content-Disposition');
+            return adminResponse;
         }
 
         // Fetch KV metadata if available
@@ -57,7 +59,9 @@ export async function onRequest(context) {
 
                 // Handle based on ListType and Label
                 if (metadata.ListType === "White") {
-                    return response;
+                    const whiteResponse = new Response(response.body, response);
+                    whiteResponse.headers.delete('Content-Disposition');
+                    return whiteResponse;
                 } else if (metadata.ListType === "Block" || metadata.Label === "adult") {
                     const referer = request.headers.get('Referer');
                     const redirectUrl = referer ? "https://static-res.pages.dev/teleimage/img-block-compressed.png" : `${url.origin}/block-img.html`;
@@ -101,7 +105,10 @@ export async function onRequest(context) {
         }
     }
 
-    return response;
+    // Remove Content-Disposition header so browsers preview instead of downloading
+    const newResponse = new Response(response.body, response);
+    newResponse.headers.delete('Content-Disposition');
+    return newResponse;
 
 }
 
