@@ -38,9 +38,7 @@ export async function onRequest(context) {
     if (response.ok) {
         // Allow the admin page to directly view the image
         if (request.headers.get('Referer') === `${url.origin}/admin`) {
-            const adminResponse = new Response(response.body, response);
-            adminResponse.headers.delete('Content-Disposition');
-            return adminResponse;
+            return cleanResponse(response, url.pathname);
         }
 
         // Fetch KV metadata if available
@@ -59,9 +57,7 @@ export async function onRequest(context) {
 
                 // Handle based on ListType and Label
                 if (metadata.ListType === "White") {
-                    const whiteResponse = new Response(response.body, response);
-                    whiteResponse.headers.delete('Content-Disposition');
-                    return whiteResponse;
+                    return cleanResponse(response, url.pathname);
                 } else if (metadata.ListType === "Block" || metadata.Label === "adult") {
                     const referer = request.headers.get('Referer');
                     const redirectUrl = referer ? "https://static-res.pages.dev/teleimage/img-block-compressed.png" : `${url.origin}/block-img.html`;
@@ -105,11 +101,31 @@ export async function onRequest(context) {
         }
     }
 
-    // Remove Content-Disposition header so browsers preview instead of downloading
-    const newResponse = new Response(response.body, response);
-    newResponse.headers.delete('Content-Disposition');
-    return newResponse;
+    return cleanResponse(response, url.pathname);
 
+}
+
+// Create a clean response: remove Content-Disposition and fix Content-Type for images
+function cleanResponse(response, pathname) {
+    const headers = new Headers(response.headers);
+    headers.delete('Content-Disposition');
+    // Fix content-type so browsers preview instead of downloading
+    if (pathname.match(/\.jpg$|\.jpeg$/i)) {
+        headers.set('Content-Type', 'image/jpeg');
+    } else if (pathname.match(/\.png$/i)) {
+        headers.set('Content-Type', 'image/png');
+    } else if (pathname.match(/\.gif$/i)) {
+        headers.set('Content-Type', 'image/gif');
+    } else if (pathname.match(/\.webp$/i)) {
+        headers.set('Content-Type', 'image/webp');
+    }
+    // Prevent CDN from caching with wrong headers
+    headers.set('Cache-Control', 'no-cache, no-transform');
+    return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: headers,
+    });
 }
 
 async function getFilePath(env, file_id) {
